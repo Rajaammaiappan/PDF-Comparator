@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF Comparator — High Accuracy</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #0a0c10;
+  --surface:  #111318;
+  --surface2: #181c24;
+  --border:   #242832;
+  --blue:     #3b82f6;
+  --blue-dk:  #1d4ed8;
+  --green:    #22c55e;
+  --yellow:   #eab308;
+  --orange:   #f97316;
+  --red:      #ef4444;
+  --text:     #e2e8f0;
+  --muted:    #64748b;
+  --mono:     'IBM Plex Mono', monospace;
+  --sans:     'IBM Plex Sans', sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;line-height:1.6;}
+
+/* HEADER */
+.header{border-bottom:1px solid var(--border);padding:18px 32px;display:flex;align-items:center;gap:14px;position:sticky;top:0;background:rgba(10,12,16,.95);backdrop-filter:blur(12px);z-index:100;}
+.header-icon{width:38px;height:38px;background:linear-gradient(135deg,var(--blue),#6366f1);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.header-icon svg{width:20px;height:20px;fill:#fff;}
+.header-title{font-size:17px;font-weight:600;letter-spacing:-.2px;}
+.header-sub{font-size:11px;color:var(--muted);font-family:var(--mono);}
+.header-badge{margin-left:auto;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:var(--blue);font-size:10px;font-family:var(--mono);padding:3px 10px;border-radius:4px;letter-spacing:.06em;}
+
+/* MAIN LAYOUT */
+.container{max-width:1180px;margin:0 auto;padding:32px 24px;}
+
+/* UPLOAD ZONE */
+.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+@media(max-width:640px){.upload-grid{grid-template-columns:1fr;}}
+.drop-zone{border:2px dashed var(--border);border-radius:12px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface);position:relative;overflow:hidden;}
+.drop-zone::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(59,130,246,.04),rgba(99,102,241,.04));opacity:0;transition:opacity .2s;}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--blue);background:rgba(59,130,246,.05);}
+.drop-zone:hover::before,.drop-zone.drag-over::before{opacity:1;}
+.drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.dz-icon{width:44px;height:44px;background:var(--surface2);border-radius:10px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;border:1px solid var(--border);}
+.dz-icon svg{width:22px;height:22px;stroke:var(--muted);fill:none;stroke-width:1.5;}
+.dz-label{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
+.dz-hint{font-size:11px;color:var(--muted);opacity:.7;}
+.dz-filename{font-size:12px;font-family:var(--mono);color:var(--blue);margin-top:10px;word-break:break-all;display:none;}
+.dz-filename.show{display:block;}
+.dz-check{display:none;width:20px;height:20px;background:var(--green);border-radius:50%;margin:8px auto 0;align-items:center;justify-content:center;}
+.dz-check.show{display:flex;}
+.dz-check svg{width:11px;height:11px;stroke:#fff;fill:none;stroke-width:2.5;}
+
+/* SETTINGS */
+.settings-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:20px;}
+.settings-title{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;}
+.settings-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+@media(max-width:640px){.settings-grid{grid-template-columns:1fr;}}
+.setting-item label{display:block;font-size:11px;color:var(--muted);margin-bottom:6px;font-family:var(--mono);}
+.setting-item input[type=range]{width:100%;accent-color:var(--blue);height:4px;}
+.setting-val{font-size:13px;font-family:var(--mono);color:var(--blue);font-weight:600;margin-top:4px;}
+
+/* COMPARE BUTTON */
+.btn-compare{width:100%;padding:14px;background:linear-gradient(135deg,var(--blue),#6366f1);border:none;border-radius:10px;color:#fff;font-family:var(--sans);font-size:15px;font-weight:600;cursor:pointer;transition:all .2s;letter-spacing:-.1px;margin-bottom:28px;}
+.btn-compare:hover{background:linear-gradient(135deg,var(--blue-dk),#4f46e5);transform:translateY(-1px);box-shadow:0 8px 24px rgba(59,130,246,.3);}
+.btn-compare:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none;}
+
+/* PROGRESS */
+.progress-wrap{display:none;margin-bottom:28px;}
+.progress-wrap.show{display:block;}
+.progress-bar-bg{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;margin:10px 0;}
+.progress-bar-fill{height:100%;background:linear-gradient(90deg,var(--blue),#6366f1);border-radius:3px;transition:width .4s ease;width:0%;}
+.progress-label{font-size:12px;font-family:var(--mono);color:var(--muted);}
+.progress-steps{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+.step-pill{font-size:10px;padding:3px 9px;border-radius:4px;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);}
+.step-pill.active{border-color:var(--blue);color:var(--blue);background:rgba(59,130,246,.1);}
+.step-pill.done{border-color:var(--green);color:var(--green);background:rgba(34,197,94,.08);}
+
+/* STATS CARDS */
+.stats-section{display:none;margin-bottom:28px;}
+.stats-section.show{display:block;}
+.stats-title{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;}
+.stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px;}
+@media(max-width:768px){.stats-grid{grid-template-columns:repeat(2,1fr);}}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+.stat-card .val{font-size:26px;font-weight:600;font-family:var(--mono);line-height:1;}
+.stat-card .lbl{font-size:10px;color:var(--muted);margin-top:5px;letter-spacing:.04em;text-transform:uppercase;}
+.stat-card.match{border-color:rgba(34,197,94,.3);}
+.stat-card.match .val{color:var(--green);}
+.stat-card.minor{border-color:rgba(234,179,8,.3);}
+.stat-card.minor .val{color:var(--yellow);}
+.stat-card.moderate{border-color:rgba(249,115,22,.3);}
+.stat-card.moderate .val{color:var(--orange);}
+.stat-card.major{border-color:rgba(239,68,68,.3);}
+.stat-card.major .val{color:var(--red);}
+
+/* TABS */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:20px;}
+.tab-btn{background:none;border:none;color:var(--muted);padding:10px 18px;font-family:var(--sans);font-size:13px;cursor:pointer;position:relative;transition:color .15s;}
+.tab-btn::after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:2px;background:var(--blue);transform:scaleX(0);transition:transform .2s;}
+.tab-btn.active{color:var(--blue);}
+.tab-btn.active::after{transform:scaleX(1);}
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+
+/* TABLE */
+.table-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--border);}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:560px;}
+thead{background:var(--surface2);}
+th{padding:10px 14px;text-align:left;font-size:10px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border);font-weight:500;}
+td{padding:9px 14px;border-bottom:1px solid rgba(36,40,50,.6);font-family:var(--mono);font-size:11px;vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,255,255,.02);}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;font-family:var(--sans);}
+.badge-match    {background:rgba(34,197,94,.12);  color:var(--green);}
+.badge-minor    {background:rgba(234,179,8,.12);  color:var(--yellow);}
+.badge-moderate {background:rgba(249,115,22,.12); color:var(--orange);}
+.badge-major    {background:rgba(239,68,68,.12);  color:var(--red);}
+.badge-missing  {background:rgba(100,116,139,.12);color:var(--muted);}
+.badge-matched  {background:rgba(34,197,94,.12);  color:var(--green);}
+.badge-different{background:rgba(239,68,68,.12);  color:var(--red);}
+.badge-nomatch  {background:rgba(100,116,139,.12);color:var(--muted);}
+
+/* EVIDENCE VIEWER */
+.evidence-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px;}
+.evidence-select-row{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
+.page-select{background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 12px;border-radius:7px;outline:none;}
+.page-select:focus{border-color:var(--blue);}
+.evidence-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+@media(max-width:640px){.evidence-grid{grid-template-columns:1fr;}}
+.evidence-img-wrap{background:var(--surface2);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.evidence-img-lbl{font-size:10px;font-family:var(--mono);color:var(--muted);padding:8px 12px;border-bottom:1px solid var(--border);letter-spacing:.06em;text-transform:uppercase;}
+.evidence-img-wrap img{width:100%;display:block;}
+.diff-wrap{grid-column:1/-1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+
+/* DOWNLOAD BUTTON */
+.btn-download{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 20px;border-radius:8px;font-family:var(--sans);font-size:13px;cursor:pointer;text-decoration:none;transition:all .15s;margin-bottom:20px;}
+.btn-download:hover{border-color:var(--blue);color:var(--blue);background:rgba(59,130,246,.06);}
+.btn-download svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;}
+
+/* ERROR */
+.error-box{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:16px 20px;color:var(--red);font-size:13px;display:none;margin-bottom:20px;}
+.error-box.show{display:block;}
+
+/* EMPTY STATE */
+.empty-state{text-align:center;padding:60px 20px;color:var(--muted);}
+.empty-state svg{width:52px;height:52px;margin:0 auto 16px;stroke:var(--muted);fill:none;stroke-width:1;opacity:.4;}
+.empty-state p{font-size:14px;}
+
+/* SEARCH */
+.search-row{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+.search-inp{background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 12px;border-radius:7px;outline:none;flex:1;min-width:180px;}
+.search-inp:focus{border-color:var(--blue);}
+.filter-sel{background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 12px;border-radius:7px;outline:none;}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-icon">
+    <svg viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+  </div>
+  <div>
+    <div class="header-title">PDF Comparator</div>
+    <div class="header-sub">High-accuracy visual + graphics comparison</div>
+  </div>
+  <div class="header-badge">SSIM · pHash · Multi-pass</div>
+</div>
+
+<!-- MAIN -->
+<div class="container">
+
+  <!-- UPLOAD -->
+  <div class="upload-grid">
+    <div class="drop-zone" id="dz-source" ondragover="onDragOver(event,'source')" ondragleave="onDragLeave('source')" ondrop="onDrop(event,'source')">
+      <input type="file" accept=".pdf" id="source-file" onchange="onFileSelect('source')">
+      <div class="dz-icon">
+        <svg viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      </div>
+      <div class="dz-label">Source PDF</div>
+      <div class="dz-hint">Original / reference document</div>
+      <div class="dz-filename" id="source-name"></div>
+      <div class="dz-check" id="source-check">
+        <svg viewBox="0 0 12 12"><polyline points="1.5,6 4.5,9 10.5,3"/></svg>
+      </div>
+    </div>
+    <div class="drop-zone" id="dz-target" ondragover="onDragOver(event,'target')" ondragleave="onDragLeave('target')" ondrop="onDrop(event,'target')">
+      <input type="file" accept=".pdf" id="target-file" onchange="onFileSelect('target')">
+      <div class="dz-icon">
+        <svg viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      </div>
+      <div class="dz-label">Target PDF</div>
+      <div class="dz-hint">Delivered / revised document</div>
+      <div class="dz-filename" id="target-name"></div>
+      <div class="dz-check" id="target-check">
+        <svg viewBox="0 0 12 12"><polyline points="1.5,6 4.5,9 10.5,3"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="settings-panel">
+    <div class="settings-title">Comparison Settings</div>
+    <div class="settings-grid">
+      <div class="setting-item">
+        <label>Render Zoom</label>
+        <input type="range" id="zoom" min="1.0" max="3.0" step="0.5" value="2.0" oninput="document.getElementById('zoom-val').textContent=this.value+'×'">
+        <div class="setting-val" id="zoom-val">2.0×</div>
+      </div>
+      <div class="setting-item">
+        <label>Page Match Threshold (SSIM)</label>
+        <input type="range" id="page-thresh" min="0.90" max="1.00" step="0.005" value="0.985" oninput="document.getElementById('pt-val').textContent=(+this.value).toFixed(3)">
+        <div class="setting-val" id="pt-val">0.985</div>
+      </div>
+      <div class="setting-item">
+        <label>Graphics Hash Threshold</label>
+        <input type="range" id="hash-thresh" min="0" max="32" step="1" value="10" oninput="document.getElementById('ht-val').textContent=this.value">
+        <div class="setting-val" id="ht-val">10</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPARE BUTTON -->
+  <button class="btn-compare" id="compare-btn" onclick="startComparison()" disabled>
+    Compare PDFs
+  </button>
+
+  <!-- ERROR -->
+  <div class="error-box" id="error-box"></div>
+
+  <!-- PROGRESS -->
+  <div class="progress-wrap" id="progress-wrap">
+    <div class="progress-label" id="progress-label">Initialising...</div>
+    <div class="progress-bar-bg">
+      <div class="progress-bar-fill" id="progress-fill"></div>
+    </div>
+    <div class="progress-steps">
+      <div class="step-pill" id="step-render">Rendering pages</div>
+      <div class="step-pill" id="step-extract">Extracting graphics</div>
+      <div class="step-pill" id="step-pages">Comparing pages</div>
+      <div class="step-pill" id="step-graphics">Comparing graphics</div>
+      <div class="step-pill" id="step-report">Building report</div>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-section" id="stats-section">
+    <div class="stats-title">Page Comparison Summary</div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="val" id="st-total">—</div><div class="lbl">Total Pages</div></div>
+      <div class="stat-card match"><div class="val" id="st-match">—</div><div class="lbl">Match</div></div>
+      <div class="stat-card minor"><div class="val" id="st-minor">—</div><div class="lbl">Minor Diff</div></div>
+      <div class="stat-card moderate"><div class="val" id="st-mod">—</div><div class="lbl">Moderate</div></div>
+      <div class="stat-card major"><div class="val" id="st-major">—</div><div class="lbl">Major Diff</div></div>
+    </div>
+    <div class="stats-title">Graphics Comparison Summary</div>
+    <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);max-width:480px;">
+      <div class="stat-card"><div class="val" id="st-igt">—</div><div class="lbl">Total Graphics</div></div>
+      <div class="stat-card match"><div class="val" id="st-igm">—</div><div class="lbl">Matched</div></div>
+      <div class="stat-card major"><div class="val" id="st-igd">—</div><div class="lbl">Different / Missing</div></div>
+    </div>
+    <a class="btn-download" id="dl-btn" href="#" style="display:none" target="_blank">
+      <svg viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+      Download Full Report (ZIP)
+    </a>
+  </div>
+
+  <!-- RESULTS TABS -->
+  <div id="results-section" style="display:none;">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('pages')">Page Results</button>
+      <button class="tab-btn" onclick="switchTab('graphics')">Graphics Results</button>
+      <button class="tab-btn" onclick="switchTab('evidence')">Visual Evidence</button>
+    </div>
+
+    <!-- PAGE RESULTS -->
+    <div class="tab-content active" id="tab-pages">
+      <div class="search-row">
+        <input class="search-inp" id="page-search" placeholder="Search..." oninput="filterPageTable()">
+        <select class="filter-sel" id="page-filter" onchange="filterPageTable()">
+          <option value="">All statuses</option>
+          <option value="Match">Match</option>
+          <option value="Minor Difference">Minor Difference</option>
+          <option value="Moderate Difference">Moderate Difference</option>
+          <option value="Major Difference">Major Difference</option>
+          <option value="Missing">Missing</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table id="page-table">
+          <thead><tr>
+            <th>Page</th><th>SSIM Score</th><th>Changed %</th><th>Status</th><th>Notes</th>
+          </tr></thead>
+          <tbody id="page-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- GRAPHICS RESULTS -->
+    <div class="tab-content" id="tab-graphics">
+      <div class="search-row">
+        <input class="search-inp" id="img-search" placeholder="Search..." oninput="filterImgTable()">
+        <select class="filter-sel" id="img-filter" onchange="filterImgTable()">
+          <option value="">All statuses</option>
+          <option value="Matched">Matched</option>
+          <option value="Different">Different</option>
+          <option value="Missing">Missing / No Match</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table id="img-table">
+          <thead><tr>
+            <th>Source Page</th><th>Source Img</th><th>Target Page</th><th>Target Img</th>
+            <th>Hash Distance</th><th>Status</th>
+          </tr></thead>
+          <tbody id="img-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- EVIDENCE -->
+    <div class="tab-content" id="tab-evidence">
+      <div class="evidence-panel">
+        <div class="evidence-select-row">
+          <span style="font-size:12px;color:var(--muted);font-family:var(--mono);">Select page:</span>
+          <select class="page-select" id="evidence-select" onchange="showEvidence()">
+            <option value="">— choose page —</option>
+          </select>
+          <span id="evidence-ssim-badge" style="font-size:11px;font-family:var(--mono);color:var(--muted);"></span>
+        </div>
+        <div id="evidence-content">
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+            <p>Select a page to view visual evidence</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- .container -->
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+let sourceFile = null, targetFile = null;
+let currentJobId = null;
+let pollTimer = null;
+let allPageResults = [], allImgResults = [], evidenceData = {};
+
+// ── File handling ──────────────────────────────────────────────────────────────
+function onFileSelect(side) {
+  const inp = document.getElementById(side + '-file');
+  const file = inp.files[0];
+  if (!file) return;
+  setFile(side, file);
+}
+function onDragOver(e, side) {
+  e.preventDefault();
+  document.getElementById('dz-' + side).classList.add('drag-over');
+}
+function onDragLeave(side) {
+  document.getElementById('dz-' + side).classList.remove('drag-over');
+}
+function onDrop(e, side) {
+  e.preventDefault();
+  document.getElementById('dz-' + side).classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type === 'application/pdf') {
+    // Assign to the file input too
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    document.getElementById(side + '-file').files = dt.files;
+    setFile(side, file);
+  }
+}
+function setFile(side, file) {
+  if (side === 'source') sourceFile = file;
+  else targetFile = file;
+  document.getElementById(side + '-name').textContent = file.name;
+  document.getElementById(side + '-name').classList.add('show');
+  document.getElementById(side + '-check').classList.add('show');
+  checkReady();
+}
+function checkReady() {
+  document.getElementById('compare-btn').disabled = !(sourceFile && targetFile);
+}
+
+// ── Comparison ─────────────────────────────────────────────────────────────────
+async function startComparison() {
+  if (!sourceFile || !targetFile) return;
+
+  clearResults();
+  document.getElementById('compare-btn').disabled = true;
+  document.getElementById('error-box').classList.remove('show');
+  document.getElementById('progress-wrap').classList.add('show');
+  setProgress(2, 'queued', 'Uploading files...');
+
+  const fd = new FormData();
+  fd.append('source_pdf', sourceFile);
+  fd.append('target_pdf', targetFile);
+  fd.append('zoom',          document.getElementById('zoom').value);
+  fd.append('page_threshold',document.getElementById('page-thresh').value);
+  fd.append('hash_threshold',document.getElementById('hash-thresh').value);
+
+  try {
+    const res  = await fetch('/compare', {method: 'POST', body: fd});
+    const data = await res.json();
+    if (data.error) { showError(data.error); return; }
+    currentJobId = data.job_id;
+    pollStatus();
+  } catch(e) {
+    showError('Upload failed: ' + e.message);
+  }
+}
+
+function pollStatus() {
+  pollTimer = setInterval(async () => {
+    try {
+      const res  = await fetch('/status/' + currentJobId);
+      const data = await res.json();
+      updateProgress(data);
+      if (data.status === 'done') {
+        clearInterval(pollTimer);
+        loadResults();
+      } else if (data.status === 'error') {
+        clearInterval(pollTimer);
+        showError(data.error || 'Comparison failed.');
+      }
+    } catch(e) {}
+  }, 1200);
+}
+
+function updateProgress(data) {
+  const labels = {
+    queued:             'Queued...',
+    rendering:          'Rendering PDF pages at high resolution...',
+    extracting_graphics:'Extracting embedded graphics from both PDFs...',
+    comparing_pages:    'Running multi-pass SSIM comparison on all pages...',
+    comparing_graphics: 'Matching graphics with perceptual hash algorithm...',
+    building_report:    'Building ZIP evidence report...',
+    done:               'Comparison complete.',
+  };
+  setProgress(data.progress || 0, data.status, labels[data.status] || data.status);
+}
+
+function setProgress(pct, status, label) {
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = label;
+  const stepMap = {
+    rendering:          'step-render',
+    extracting_graphics:'step-extract',
+    comparing_pages:    'step-pages',
+    comparing_graphics: 'step-graphics',
+    building_report:    'step-report',
+    done:               'step-report',
+  };
+  const steps = ['step-render','step-extract','step-pages','step-graphics','step-report'];
+  const activeStep = stepMap[status];
+  let past = true;
+  steps.forEach(s => {
+    const el = document.getElementById(s);
+    if (s === activeStep) {
+      el.className = 'step-pill active'; past = false;
+    } else if (past) {
+      el.className = 'step-pill done';
+    } else {
+      el.className = 'step-pill';
+    }
+  });
+}
+
+async function loadResults() {
+  try {
+    const res  = await fetch('/results/' + currentJobId);
+    const data = await res.json();
+
+    const s = data.stats;
+    document.getElementById('st-total').textContent = s.total;
+    document.getElementById('st-match').textContent = s.match;
+    document.getElementById('st-minor').textContent = s.minor;
+    document.getElementById('st-mod').textContent   = s.moderate;
+    document.getElementById('st-major').textContent = s.major;
+    document.getElementById('st-igt').textContent   = s.img_total;
+    document.getElementById('st-igm').textContent   = s.img_matched;
+    document.getElementById('st-igd').textContent   = s.img_diff + s.img_missing;
+
+    document.getElementById('stats-section').classList.add('show');
+
+    const dlBtn = document.getElementById('dl-btn');
+    dlBtn.href = '/download/' + currentJobId;
+    dlBtn.style.display = 'inline-flex';
+
+    allPageResults = data.page_results;
+    allImgResults  = data.img_results;
+    evidenceData   = data.evidence;
+
+    renderPageTable(allPageResults);
+    renderImgTable(allImgResults);
+    populateEvidenceSelect(data.page_results);
+
+    document.getElementById('results-section').style.display = 'block';
+    document.getElementById('compare-btn').disabled = false;
+
+  } catch(e) {
+    showError('Failed to load results: ' + e.message);
+  }
+}
+
+// ── Table renderers ────────────────────────────────────────────────────────────
+function statusBadge(status) {
+  const map = {
+    'Match':               'badge-match',
+    'Minor Difference':    'badge-minor',
+    'Moderate Difference': 'badge-moderate',
+    'Major Difference':    'badge-major',
+    'Missing in Source':   'badge-missing',
+    'Missing in Target':   'badge-missing',
+    'Matched':             'badge-matched',
+    'Different':           'badge-different',
+    'No Match Found':      'badge-nomatch',
+    'Missing in Target':   'badge-nomatch',
+  };
+  const cls = map[status] || 'badge-missing';
+  return `<span class="badge ${cls}">${status}</span>`;
+}
+
+function renderPageTable(rows) {
+  const tbody = document.getElementById('page-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px;">No results</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.page_no}</td>
+      <td>${(+r.similarity_score).toFixed(4)}</td>
+      <td>${(+r.changed_pixels_pct).toFixed(2)}%</td>
+      <td>${statusBadge(r.status)}</td>
+      <td style="color:var(--muted);font-family:var(--sans);font-size:11px;">${r.notes}</td>
+    </tr>`).join('');
+}
+
+function renderImgTable(rows) {
+  const tbody = document.getElementById('img-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">No embedded graphics found</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.page_no_source}</td>
+      <td>${r.img_index_source}</td>
+      <td>${r.page_no_target < 0 ? '—' : r.page_no_target}</td>
+      <td>${r.img_index_target < 0 ? '—' : r.img_index_target}</td>
+      <td>${r.hash_distance === 999 ? '—' : r.hash_distance}</td>
+      <td>${statusBadge(r.status)}</td>
+    </tr>`).join('');
+}
+
+// ── Filters ────────────────────────────────────────────────────────────────────
+function filterPageTable() {
+  const q = document.getElementById('page-search').value.toLowerCase();
+  const f = document.getElementById('page-filter').value;
+  const rows = allPageResults.filter(r => {
+    const matchQ = !q || String(r.page_no).includes(q) || r.status.toLowerCase().includes(q) || r.notes.toLowerCase().includes(q);
+    const matchF = !f || r.status === f || (f === 'Missing' && r.status.includes('Missing'));
+    return matchQ && matchF;
+  });
+  renderPageTable(rows);
+}
+
+function filterImgTable() {
+  const q = document.getElementById('img-search').value.toLowerCase();
+  const f = document.getElementById('img-filter').value;
+  const rows = allImgResults.filter(r => {
+    const matchQ = !q || String(r.page_no_source).includes(q) || r.status.toLowerCase().includes(q);
+    const matchF = !f || r.status === f || (f === 'Missing' && (r.status.includes('Missing') || r.status.includes('No Match')));
+    return matchQ && matchF;
+  });
+  renderImgTable(rows);
+}
+
+// ── Evidence viewer ────────────────────────────────────────────────────────────
+function populateEvidenceSelect(pageResults) {
+  const sel = document.getElementById('evidence-select');
+  sel.innerHTML = '<option value="">— choose page —</option>';
+  // Prioritise pages with differences
+  const sorted = [...pageResults].sort((a,b) => {
+    const order = {'Major Difference':0,'Moderate Difference':1,'Minor Difference':2,'Missing in Source':3,'Missing in Target':4,'Match':5};
+    return (order[a.status]||9) - (order[b.status]||9);
+  });
+  sorted.forEach(r => {
+    if (!evidenceData[r.page_no]) return;
+    const opt = document.createElement('option');
+    opt.value = r.page_no;
+    opt.textContent = `Page ${r.page_no} — ${r.status} (${(+r.similarity_score).toFixed(4)})`;
+    sel.appendChild(opt);
+  });
+}
+
+function showEvidence() {
+  const pageNo = +document.getElementById('evidence-select').value;
+  const ev     = evidenceData[pageNo];
+  const content = document.getElementById('evidence-content');
+  if (!pageNo || !ev) {
+    content.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg><p>Select a page to view visual evidence</p></div>';
+    return;
+  }
+
+  const pr = allPageResults.find(r => r.page_no === pageNo);
+  const badge = pr ? `${statusBadge(pr.status)} &nbsp; SSIM: <span style="font-family:var(--mono);color:var(--blue)">${(+pr.similarity_score).toFixed(4)}</span>` : '';
+  document.getElementById('evidence-ssim-badge').innerHTML = badge;
+
+  content.innerHTML = `
+    <div class="evidence-grid">
+      <div class="evidence-img-wrap">
+        <div class="evidence-img-lbl">Source — with difference highlights</div>
+        <img src="data:image/png;base64,${ev.marked_source}" alt="Source">
+      </div>
+      <div class="evidence-img-wrap">
+        <div class="evidence-img-lbl">Target — with difference highlights</div>
+        <img src="data:image/png;base64,${ev.marked_target}" alt="Target">
+      </div>
+      <div class="diff-wrap">
+        <div class="evidence-img-lbl">Difference Mask (amplified)</div>
+        <img src="data:image/png;base64,${ev.diff_mask}" alt="Diff mask">
+      </div>
+    </div>`;
+}
+
+// ── Tabs ───────────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    const names = ['pages','graphics','evidence'];
+    b.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.tab-content').forEach((c,i) => {
+    const names = ['tab-pages','tab-graphics','tab-evidence'];
+    c.classList.toggle('active', names[i] === 'tab-'+name);
+  });
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+function showError(msg) {
+  const box = document.getElementById('error-box');
+  box.textContent = msg;
+  box.classList.add('show');
+  document.getElementById('progress-wrap').classList.remove('show');
+  document.getElementById('compare-btn').disabled = false;
+}
+
+function clearResults() {
+  document.getElementById('stats-section').classList.remove('show');
+  document.getElementById('results-section').style.display = 'none';
+  document.getElementById('progress-wrap').classList.remove('show');
+  document.getElementById('dl-btn').style.display = 'none';
+  allPageResults = []; allImgResults = []; evidenceData = {};
+  clearInterval(pollTimer);
+}
+</script>
+</body>
+</html>
